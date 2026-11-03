@@ -138,7 +138,13 @@ const DEFAULT_OVERSEAS = {
   AAPL: { price: 338.32, prevClose: 344.63, prevMonthClose: 340 },
 };
 
-async function mockQuotes(page, { domestic = DEFAULT_DOMESTIC, overseas = DEFAULT_OVERSEAS, usdkrw = 1342.88, log = [], relayHost = '**', twelveError = null } = {}) {
+async function mockQuotes(page, { domestic = DEFAULT_DOMESTIC, overseas = DEFAULT_OVERSEAS, usdkrw = 1342.88, log = [], relayHost = '**', twelveError = null, github = null } = {}) {
+  // GitHub 자동 갱신 파일 (data 브랜치). github: { updatedAt, q } 를 주면 그 내용, 없으면 404
+  await page.route('https://raw.githubusercontent.com/**', (route) => {
+    log.push(route.request().url());
+    if (!github) { route.fulfill({ status: 404, body: '404: Not Found', headers: { 'Access-Control-Allow-Origin': '*' } }); return; }
+    route.fulfill({ contentType: 'text/plain; charset=utf-8', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(Object.assign({ source: 'naver', fields: ['price', 'prevClose', 'prevMonthClose', 'name', 'market'] }, github)) });
+  });
   await page.route(`${relayHost === '**' ? '**' : relayHost}/api/quote**`, (route) => {
     log.push(route.request().url());
     const codes = new URL(route.request().url()).searchParams.get('codes').split(',');

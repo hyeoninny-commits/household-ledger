@@ -11,7 +11,7 @@
 
   var U = L.utils;
   var MARKET_NAME = { KS: '코스피', KQ: '코스닥', US: '미국' };
-  var SOURCE_NAME = { naver: '네이버', twelvedata: 'Twelve Data', manual: '직접 입력' };
+  var SOURCE_NAME = { naver: '네이버', 'naver-github': '네이버(10분 간격)', twelvedata: 'Twelve Data', manual: '직접 입력' };
   var sameOriginRelay = null; // PC 서버의 /api/quote 사용 가능 여부 (null: 아직 모름)
 
   function key(st) { return st.market + ':' + st.code; }
@@ -111,16 +111,68 @@
     });
   }
 
-  /** 국내 시세 중계 서버 주소. 없으면 null */
+  function isGithubPages() { return /\.github\.io$/i.test(window.location.hostname); }
+
+  /** 실시간 중계 서버 주소 (설정 주소 → PC 서버 같은 주소). 없으면 null */
   function relayBase(state) {
     var url = (state.settings.stockRelayUrl || '').trim();
     if (url) return url.replace(/\/+$/, '') + '/api/quote';
-    if (/^https?:$/.test(window.location.protocol) && sameOriginRelay !== false) return 'api/quote';
+    if (/^https?:$/.test(window.location.protocol) && !isGithubPages() && sameOriginRelay !== false) return 'api/quote';
     return null;
   }
 
-  /** 국내: 네이버 (중계 서버 경유) */
+  /* ---------- GitHub 자동 갱신 파일 (중계 서버가 없을 때) ----------
+   * GitHub Actions(.github/workflows/naver-quotes.yml)가 평일 장중 10분마다 네이버 전 종목 시세를
+   * data 브랜치의 naver-quotes.json 으로 올린다. raw.githubusercontent.com 은 CORS를 허용해 어디서든 읽을 수 있다. */
+  var DEFAULT_DATA_URL = 'https://raw.githubusercontent.com/hyeoninny-commits/household-ledger/data/naver-quotes.json';
+  var dataCache = null; // { at, url, data } — 파일이 크므로(약 200KB) 3분 안에는 다시 받지 않는다
+  var DATA_CACHE_MS = 3 * 60 * 1000;
+
+  function githubDataUrl() {
+    if (isGithubPages()) {
+      var owner = window.location.hostname.split('.')[0];
+      var repo = window.location.pathname.split('/')[1] || owner + '.github.io';
+      return 'https://raw.githubusercontent.com/' + owner + '/' + repo + '/data/naver-quotes.json';
+    }
+    return DEFAULT_DATA_URL;
+  }
+
+  function fetchGithubData(stocks) {
+    var url = githubDataUrl();
+    var cached = dataCache && dataCache.url === url && Date.now() - dataCache.at < DATA_CACHE_MS ? Promise.resolve(dataCache.data) : null;
+    var p = cached || withTimeout(fetch(url, { cache: 'no-store' }), 20000).then(function (res) {
+      if (res.status === 404) throw new Error('국내 시세 파일이 아직 없어요. GitHub Actions의 "국내 주식 시세 갱신"이 한 번 실행돼야 해요');
+      if (!res.ok) throw new Error('국내 시세 파일을 받지 못했어요 (' + res.status + ')');
+      return res.json();
+    }, function () {
+      throw new Error('국내 시세 파일에 연결하지 못했어요');
+    }).then(function (data) {
+      dataCache = { at: Date.now(), url: url, data: data };
+      return data;
+    });
+    return p.then(function (data) {
+      var quotes = {}, errors = {};
+      stocks.forEach(function (st) {
+        var row = data.q && data.q[st.code];
+        if (row && row[0] > 0) {
+          quotes[key(st)] = { price: row[0], prevClose: row[1], prevMonthClose: row[2], currency: 'KRW', name: row[3] || '', time: data.updatedAt || null, source: 'naver-github' };
+        } else errors[key(st)] = '종목을 찾지 못했어요';
+      });
+      return { quotes: quotes, errors: errors };
+    });
+  }
+
+  /** 국내: 실시간 중계 서버가 있으면 그것을, 없으면 GitHub 자동 갱신 파일을 쓴다 */
   function fetchDomestic(stocks, state) {
+    if (!relayBase(state)) return fetchGithubData(stocks);
+    return fetchRelay(stocks, state).catch(function (e) {
+      if (e && e.message === 'no-relay') return fetchGithubData(stocks);
+      throw e;
+    });
+  }
+
+  /** 국내: 네이버 (실시간 중계 서버 경유) */
+  function fetchRelay(stocks, state) {
     var base = relayBase(state);
     if (!base) return Promise.reject(new Error('no-relay'));
     var sameOrigin = base === 'api/quote';
@@ -194,7 +246,7 @@
         Object.assign(out.quotes, r.quotes);
         Object.assign(out.errors, r.errors);
         if (r.usdkrw) out.usdkrw = r.usdkrw;
-        if (Object.keys(r.quotes).length || !Object.keys(r.errors).length) out.sources.push(source);
+        if (Object.keys(r.quotes).length || !Object.keys(r.errors).length) out.sources.push(source || r.source);
       }, function (e) {
         var msg = MISSING[e && e.message] || (e && e.message) || '시세를 받지 못했어요';
         out.notices.push(msg);
@@ -202,7 +254,13 @@
       });
     }
     var jobs = [];
-    if (dom.length) jobs.push(collect(dom, 'naver', fetchDomestic(dom, state)));
+    if (dom.length) {
+      jobs.push(collect(dom, null, fetchDomestic(dom, state).then(function (r) {
+        var any = Object.keys(r.quotes).map(function (k) { return r.quotes[k].source; })[0];
+        r.source = any || (relayBase(state) ? 'naver' : 'naver-github');
+        return r;
+      })));
+    }
     if (ovs.length) jobs.push(collect(ovs, 'twelvedata', fetchOverseas(ovs, state.settings.stockApiKey)));
     return Promise.all(jobs).then(function () {
       if (!stocks) L.store.setMarket(out.quotes, out.usdkrw);
@@ -213,7 +271,7 @@
   /** 지금 설정으로 쓸 수 있는 시세 출처 설명 */
   function sourceInfo(state) {
     return {
-      domestic: (state.settings.stockRelayUrl ? '중계 서버' : relayBase(state) ? 'PC 서버' : null),
+      domestic: (state.settings.stockRelayUrl ? '중계 서버' : relayBase(state) ? 'PC 서버' : 'GitHub 자동 갱신(10분 간격)'),
       overseas: state.settings.stockApiKey ? 'Twelve Data' : null
     };
   }
@@ -231,6 +289,7 @@
     closesFromBars: closesFromBars,
     refresh: refresh,
     sourceInfo: sourceInfo,
-    _reset: function () { sameOriginRelay = null; } // 테스트용
+    githubDataUrl: githubDataUrl,
+    _reset: function () { sameOriginRelay = null; dataCache = null; } // 테스트용
   };
 })(window.Ledger = window.Ledger || {});

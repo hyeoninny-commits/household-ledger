@@ -1,0 +1,47 @@
+# 국내 주식 시세 자동 갱신 (네이버 증권 → data 브랜치의 naver-quotes.json)
+# - 평일 장중(한국 시간 9:00~16:50) 10분마다 실행. GitHub 사정에 따라 몇 분 늦게 실행될 수 있음
+# - Actions 탭 → "국내 주식 시세 갱신" → Run workflow 로 언제든 직접 실행 가능
+# - 가계부(GitHub Pages)는 https://raw.githubusercontent.com/<계정>/<저장소>/data/naver-quotes.json 을 읽는다
+# - data 브랜치는 매번 새 커밋 하나로 덮어써서 저장소 기록이 쌓이지 않게 한다
+name: 국내 주식 시세 갱신
+
+on:
+  schedule:
+    - cron: '*/10 0-7 * * 1-5' # UTC 0:00~7:50 = 한국 시간 9:00~16:50, 월~금
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: naver-quotes
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: relay
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 이전 시세 파일 가져오기 (지난달 말 종가 재사용)
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/data/naver-quotes.json" -o prev.json || rm -f prev.json
+
+      - name: 네이버에서 시세 받기
+        run: node relay/update-quotes.mjs prev.json naver-quotes.json
+
+      - name: data 브랜치에 올리기
+        run: |
+          mkdir out && mv naver-quotes.json out/ && cd out
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add naver-quotes.json
+          git commit -q -m "국내 주식 시세 $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" data:data

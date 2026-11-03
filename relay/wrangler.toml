@@ -1,0 +1,5 @@
+# Cloudflare Workers 배포 설정 (npx wrangler deploy)
+name = "ledger-relay"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true

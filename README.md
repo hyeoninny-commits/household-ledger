@@ -18,7 +18,7 @@
 PC와 휴대폰은 따로 저장되므로, 옮길 때는 설정의 백업 내보내기·가져오기를 쓰세요.
 
 ## 주식 시세 받기
-- **국내 주식**: 시세 중계 서버가 필요합니다. [relay/README.md](relay/README.md)를 따라 Cloudflare Workers에 무료로 올리고, 설정 → 주식 시세에 주소를 넣으세요.
+- **국내 주식**: 설정할 것이 없습니다. GitHub Actions가 평일 장중 10분마다 네이버 증권 시세를 받아 두고 가계부가 읽습니다. 더 빠른 실시간 시세가 필요하면 [relay/README.md](relay/README.md)를 참고하세요.
 - **해외 주식**: [twelvedata.com](https://twelvedata.com)에서 무료 API 키를 받아 설정에 넣으세요.
 - 둘 다 없으면 종목에 직접 입력한 가격으로 계산합니다.
 

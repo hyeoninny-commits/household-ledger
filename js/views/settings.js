@@ -127,11 +127,11 @@
 
       '<form class="card" id="stock-form" novalidate>' +
         '<h3 class="card-title">주식 시세</h3>' +
-        '<p class="hint"><strong>국내 주식(네이버 증권)</strong>: 시세 중계 서버가 필요해요. PC에서 <code>node serve.js</code>로 열었다면 비워 두고, ' +
-          'GitHub Pages 등에 올렸다면 Cloudflare Workers에 올린 중계 서버 주소를 넣으세요. (relay/README.md)<br>' +
+        '<p class="hint"><strong>국내 주식(네이버 증권)</strong>: 따로 설정하지 않아도 GitHub이 평일 장중 10분마다 받아 둔 시세를 써요. ' +
+          '더 빠른 실시간 시세가 필요하면 PC에서 <code>node serve.js</code>로 열거나, 아래에 실시간 중계 서버 주소를 넣으세요. (relay/README.md)<br>' +
           '<strong>해외 주식</strong>: twelvedata.com에서 무료 API 키를 받아 넣으세요.<br>' +
           '시세를 못 받으면 종목에 직접 입력한 가격으로 계산해요. 외부로는 종목 코드만 보내고, 보유 수량·금액은 보내지 않아요.</p>' +
-        '<label class="field"><span>국내 시세 중계 서버 주소 (선택)</span><input type="url" name="stockRelayUrl" inputmode="url" autocomplete="off" spellcheck="false" value="' + U.escapeHtml(st.stockRelayUrl || '') + '" placeholder="예: https://ledger-relay.내아이디.workers.dev"></label>' +
+        '<label class="field"><span>국내 실시간 중계 서버 주소 (선택, 비워 두면 10분 간격 시세)</span><input type="url" name="stockRelayUrl" inputmode="url" autocomplete="off" spellcheck="false" value="' + U.escapeHtml(st.stockRelayUrl || '') + '" placeholder="예: https://ledger-relay.내아이디.workers.dev"></label>' +
         '<p class="field-error" data-error-for="stockRelayUrl"></p>' +
         '<div class="field-row">' +
           '<label class="field"><span>해외 시세 Twelve Data API 키 (선택)</span><input type="password" name="stockApiKey" autocomplete="off" spellcheck="false" value="' + U.escapeHtml(st.stockApiKey || '') + '" placeholder="비우면 사용 안 함"></label>' +

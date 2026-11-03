@@ -343,18 +343,37 @@ test.describe('주식', () => {
     expect(log).toContain('https://ledger-relay.example.workers.dev/api/quote?codes=247540');
   });
 
-  test('시세 출처가 없으면 종목별로 이유를 알리고 직접 입력 가격으로 계산', async ({ page }) => {
-    const log = await H.mockQuotes(page);
-    await H.openApp(page, { hash: '#stocks' }); // 파일로 열고, 중계 서버 주소·API 키 없음
+  test('중계 서버가 없으면 GitHub 자동 갱신 파일(10분 간격)로 국내 시세를 받는다', async ({ page }) => {
+    const log = await H.mockQuotes(page, {
+      github: { updatedAt: '2026-11-04T02:40:00.000Z', tradeDate: '2026-11-04', month: '2026-11', q: { '005930': [217750, 229000, 225000, '삼성전자', 'KS'], '247540': [91500, 92100, 90900, '에코프로비엠', 'KQ'] } },
+    });
+    await H.openApp(page, { hash: '#stocks' }); // 파일로 열고, 중계 서버 주소 없음 (GitHub Pages도 같은 방식)
+    await H.seed(page, { stocks: [stock('KS', '005930', 10, { avgPrice: 200000 }), stock('KQ', '999999', 1, { manualPrice: 5000 })] });
+    const item = page.locator('.stock-item').filter({ hasText: '005930' });
+    await expect(item.locator('.stock-price strong')).toHaveText('217,750원');
+    await expect(item).toContainText('삼성전자');
+    await expect(item.locator('.chg').nth(0)).toHaveText('전일 대비 ▼ 11,250원 (-4.91%)');
+    await expect(item.locator('.chg').nth(1)).toHaveText('지난달 말 대비 ▼ 7,250원 (-3.22%)');
+    await expect(item).toContainText('11:40 기준 가격'); // 파일이 만들어진 시각 (한국 시간)
+    await expect(page.locator('[data-status]')).toContainText('국내 네이버(10분 간격)');
+    await expect(page.locator('.stock-item').filter({ hasText: '999999' })).toContainText('종목을 찾지 못했어요');
+    expect(log).toEqual(['https://raw.githubusercontent.com/hyeoninny-commits/household-ledger/data/naver-quotes.json']);
+    // 3분 안에 다시 갱신하면 파일을 또 받지 않는다 (약 200KB라 데이터 절약)
+    await page.locator('[data-refresh]').click();
+    await expect(page.locator('[data-status]')).toContainText('국내 네이버');
+    expect(log.length).toBe(1);
+  });
+
+  test('GitHub 시세 파일이 아직 없고 API 키도 없으면 이유를 알리고 직접 입력 가격으로 계산', async ({ page }) => {
+    await H.mockQuotes(page);
+    await H.openApp(page, { hash: '#stocks' });
     await H.seed(page, { stocks: [stock('KS', '005930', 3, { name: '삼성전자', manualPrice: 200000 }), stock('US', 'TSLA', 1, { manualPrice: 250 })] });
-    await expect(page.locator('[data-status]')).toContainText('국내 주식 시세는 중계 서버가 있어야 받을 수 있어요');
+    await expect(page.locator('[data-status]')).toContainText('국내 시세 파일이 아직 없어요');
     await expect(page.locator('[data-status]')).toContainText('해외 주식 시세는 설정에 Twelve Data API 키를 넣어야');
     await expect(page.locator('.stock-item').first()).toContainText('직접 입력 가격');
     await expect(page.locator('.stock-item .chg').first()).toHaveText('전일 대비 -');
-    // 환율이 없어 미국 주식은 합계에서 빠짐
     await expect(page.locator('#stock-total')).toHaveText('600,000원');
     await expect(page.locator('.stock-summary')).toContainText('미국 주식 1개는 환율을 아직 못 받아서');
-    expect(log).toEqual([]);
   });
 
   test('없는 종목은 그 종목만 안내하고, 잘못된 API 키는 이유를 알려 준다', async ({ page }) => {

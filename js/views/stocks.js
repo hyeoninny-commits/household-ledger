@@ -148,7 +148,7 @@
     if (!lastResult) return '';
     var parts = [];
     if (lastResult.sources.length) {
-      parts.push('시세: ' + lastResult.sources.map(function (x) { return x === 'naver' ? '국내 네이버' : '해외 Twelve Data'; }).join(' · ') +
+      parts.push('시세: ' + lastResult.sources.map(function (x) { return x === 'naver' ? '국내 네이버' : x === 'naver-github' ? '국내 네이버(10분 간격)' : '해외 Twelve Data'; }).join(' · ') +
         ' · ' + timeText(lastResult.at) + ' 기준' + (sec ? ' · ' + sec / 60 + '분마다 자동 갱신' : ''));
     }
     var errs = Object.keys(lastResult.errors || {}).length;
