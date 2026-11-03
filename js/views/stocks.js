@@ -148,8 +148,19 @@
     if (!lastResult) return '';
     var parts = [];
     if (lastResult.sources.length) {
+      var github = lastResult.sources.indexOf('naver-github') >= 0;
+      // GitHub 시세 파일은 받은 시각이 아니라 파일이 만들어진 시각이 기준 (가장 오래된 시세 시각)
+      var at = lastResult.at;
+      if (github) {
+        Object.keys(lastResult.quotes || {}).forEach(function (k) {
+          var q = lastResult.quotes[k];
+          if (q.source === 'naver-github' && q.time && q.time < at) at = q.time;
+        });
+      }
+      var onlyGithub = github && lastResult.sources.length === 1;
       parts.push('시세: ' + lastResult.sources.map(function (x) { return x === 'naver' ? '국내 네이버' : x === 'naver-github' ? '국내 네이버(10분 간격)' : '해외 Twelve Data'; }).join(' · ') +
-        ' · ' + timeText(lastResult.at) + ' 기준' + (sec ? ' · ' + sec / 60 + '분마다 자동 갱신' : ''));
+        ' · ' + timeText(at) + ' 기준' +
+        (onlyGithub ? ' · 평일 장중 10분마다 새 시세' : sec ? ' · ' + sec / 60 + '분마다 자동 갱신' : ''));
     }
     var errs = Object.keys(lastResult.errors || {}).length;
     if (lastResult.notices.length) {

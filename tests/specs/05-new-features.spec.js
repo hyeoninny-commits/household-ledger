@@ -355,7 +355,7 @@ test.describe('주식', () => {
     await expect(item.locator('.chg').nth(0)).toHaveText('전일 대비 ▼ 11,250원 (-4.91%)');
     await expect(item.locator('.chg').nth(1)).toHaveText('지난달 말 대비 ▼ 7,250원 (-3.22%)');
     await expect(item).toContainText('11:40 기준 가격'); // 파일이 만들어진 시각 (한국 시간)
-    await expect(page.locator('[data-status]')).toContainText('국내 네이버(10분 간격)');
+    await expect(page.locator('[data-status]')).toContainText('국내 네이버(10분 간격) · 11:40 기준 · 평일 장중 10분마다 새 시세');
     await expect(page.locator('.stock-item').filter({ hasText: '999999' })).toContainText('종목을 찾지 못했어요');
     expect(log).toEqual(['https://raw.githubusercontent.com/hyeoninny-commits/household-ledger/data/naver-quotes.json']);
     // 3분 안에 다시 갱신하면 파일을 또 받지 않는다 (약 200KB라 데이터 절약)
