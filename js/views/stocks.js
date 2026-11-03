@@ -103,8 +103,9 @@
           var res = item ? L.store.updateStock(item.id, input) : L.store.addStock(input);
           if (!res.ok) { L.ui.showErrors(form, res.errors); return; }
           close();
-          L.ui.toast(item ? '종목을 수정했어요' : (res.item.name || res.item.code) + ' 종목을 추가했어요', 'ok');
-          refreshNow();
+          var auto = L.store.getState().settings.stockRefreshSec > 0;
+          L.ui.toast((item ? '종목을 수정했어요' : (res.item.name || res.item.code) + ' 종목을 추가했어요') + (auto ? '' : ' · [지금 갱신]을 누르면 시세를 받아요'), 'ok');
+          if (auto) refreshNow();
         });
         form.code.focus();
       }
@@ -138,14 +139,19 @@
   }
 
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && L.router && L.router.current() === 'stocks') refreshNow();
+    if (!document.hidden && L.router && L.router.current() === 'stocks' && L.store.getState().settings.stockRefreshSec > 0) refreshNow();
   });
 
   /* ---------- 화면 ---------- */
   function statusLine(s) {
     var sec = s.settings.stockRefreshSec;
     if (loading) return '<span class="spinner" aria-hidden="true"></span> 시세를 받는 중…';
-    if (!lastResult) return '';
+    if (!lastResult) {
+      if (!s.stocks.length) return '';
+      var times = Object.keys(s.market.quotes).map(function (k) { return s.market.quotes[k].time; }).filter(Boolean).sort();
+      return (times.length ? '마지막으로 받은 시세 · ' + timeText(times[0]) + ' 기준 · ' : '') +
+        (sec ? '' : '<strong>[지금 갱신]</strong>을 누르면 최신 시세를 받아요');
+    }
     var parts = [];
     if (lastResult.sources.length) {
       var github = lastResult.sources.indexOf('naver-github') >= 0;
@@ -255,8 +261,9 @@
       }
     });
     // 화면에 들어올 때 30초보다 오래된 시세면 새로 받고, 이후 설정한 주기로 갱신
+    // 자동 갱신이 켜져 있을 때만 화면에 들어오면서 받는다 (끄기면 [지금 갱신]을 누를 때만)
     var stale = !lastResult || Date.now() - new Date(lastResult.at).getTime() > 30000;
-    if (stale && !loading) refreshNow();
+    if (stale && !loading && L.store.getState().settings.stockRefreshSec > 0) refreshNow();
     if (!timer || timerSec !== L.store.getState().settings.stockRefreshSec) schedule();
   }
 

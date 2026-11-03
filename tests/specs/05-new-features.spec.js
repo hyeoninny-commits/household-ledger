@@ -288,6 +288,11 @@ test.describe('주식', () => {
     await H.openApp(page, { http: true, hash: '#stocks' });
     await expect(page.locator('.empty')).toContainText('첫 종목 추가');
     await addStockUI(page, { code: '005930', quantity: 10, avgPrice: '200,000' });
+    // 기본은 자동 갱신 끄기: [지금 갱신]을 누를 때만 받는다
+    await expect(page.locator('#toast-region')).toContainText('[지금 갱신]을 누르면 시세를 받아요');
+    await expect(page.locator('[data-status]')).toContainText('[지금 갱신]을 누르면 최신 시세를 받아요');
+    expect(log).toEqual([]);
+    await page.locator('[data-refresh]').click();
     const item = page.locator('.stock-item');
     await expect(item).toContainText('삼성전자'); // 네이버의 한글 종목명
     await expect(item.locator('.stock-price strong')).toHaveText('217,750원');
@@ -299,7 +304,7 @@ test.describe('주식', () => {
     await expect(item.locator('.stock-meta .chg-up')).toHaveText('▲ 177,500원 (+8.88%)');
     await expect(page.locator('#stock-total')).toHaveText('2,177,500원');
     await expect(page.locator('[data-status]')).toContainText('시세: 국내 네이버');
-    await expect(page.locator('[data-status]')).toContainText('1분마다 자동 갱신');
+    await expect(page.locator('[data-status]')).not.toContainText('자동 갱신');
     // 외부로는 종목 코드만 (수량·금액 없음), 같은 주소의 중계 서버로
     expect(log.length).toBeGreaterThan(0);
     log.forEach((u) => { expect(u).not.toMatch(/quantity|200000|avg/); });
@@ -431,6 +436,55 @@ test.describe('주식', () => {
     await dlg.locator('[data-check]').click();
     await expect(dlg.locator('[data-check-result]')).toHaveText('지금은 시세를 받을 수 없어요. 해외 주식 시세는 설정에 Twelve Data API 키를 넣어야 받을 수 있어요.');
     expect((await H.getState(page)).market.quotes).toEqual({}); // 미리 보기는 저장하지 않음
+  });
+
+
+  test('자동 갱신 끄기(기본): 화면에 들어가도 받지 않고 [지금 갱신]을 누를 때만 받는다', async ({ page }) => {
+    const log = await H.mockQuotes(page);
+    await H.openApp(page, { http: true, hash: '#home', clock: 'install' });
+    await H.seed(page, { stocks: [stock('KS', '005930', 1)], settings: { stockRefreshSec: 0, stockApiKey: 'k' } });
+    expect((await H.getState(page)).settings.stockRefreshSec).toBe(0);
+    await H.go(page, 'stocks');
+    await expect(page.locator('.stock-item')).toContainText('가격 없음');
+    await page.clock.fastForward(10 * 60_000);
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    expect(log).toEqual([]); // 들어가기·시간 경과·탭 전환으로는 받지 않음
+    await page.locator('[data-refresh]').click();
+    await expect(page.locator('.stock-price strong')).toHaveText('217,750원');
+    expect(log.length).toBe(1);
+    await page.reload();
+    await expect(page.locator('.stock-price strong')).toHaveText('217,750원'); // 마지막으로 받은 가격 표시
+    await expect(page.locator('[data-status]')).toContainText('마지막으로 받은 시세');
+    expect(log.length).toBe(1);
+    await H.go(page, 'settings');
+    await expect(page.locator('select[name=stockRefreshSec] option:checked')).toHaveText('끄기 ([지금 갱신]을 누를 때만)');
+  });
+
+  test('예전 기본값(1분)을 쓰던 저장 데이터는 끄기로, 직접 고른 5분은 그대로 (v3 → v4)', async ({ page }) => {
+    await H.openApp(page);
+    for (const [before, after] of [[60, 0], [300, 300]]) {
+      await page.evaluate(([k, sec]) => {
+        const d = window.Ledger.storage.createDefault();
+        d.schemaVersion = 3;
+        d.settings.stockRefreshSec = sec;
+        localStorage.setItem(k, JSON.stringify(d));
+      }, [H.KEY, before]);
+      await page.reload();
+      await H.addExpenseUI(page, { amount: '500', place: '껌' }); // 저장해서 변환 결과 기록
+      const st = await H.getState(page);
+      expect(st.schemaVersion).toBe(4);
+      expect(st.settings.stockRefreshSec, `${before}초`).toBe(after);
+    }
+  });
+
+  test('중계 서버 주소가 잘못돼도 GitHub 자동 갱신 파일로 국내 시세를 받는다', async ({ page }) => {
+    await H.mockQuotes(page, { github: { updatedAt: '2026-11-04T02:40:00.000Z', q: { '005930': [217750, 229000, 225000, '삼성전자', 'KS'] } } });
+    await page.route('https://wrong-relay.example/**', (r) => r.abort());
+    await H.openApp(page, { hash: '#stocks' });
+    await H.seed(page, { stocks: [stock('KS', '005930', 1)], settings: { stockRelayUrl: 'https://wrong-relay.example' } });
+    await expect(page.locator('.stock-price strong')).toHaveText('217,750원');
+    await expect(page.locator('[data-status]')).toContainText('실시간 중계 서버에 연결하지 못해');
+    await expect(page.locator('[data-status]')).toContainText('국내 네이버(10분 간격)');
   });
 
   test('입력 검증: 종목 코드 형식, 수량, 중복', async ({ page }) => {

@@ -327,7 +327,7 @@ test.describe('잘못된 데이터에 대한 내구성', () => {
     expect(errors.filter((e) => e.startsWith('[pageerror]'))).toEqual([]);
   });
 
-  test('스키마 버전이 없는 옛 데이터는 현재 버전(v3)으로 변환', async ({ page }) => {
+  test('스키마 버전이 없는 옛 데이터는 현재 버전(v4)으로 변환', async ({ page }) => {
     await H.openApp(page);
     await page.evaluate((k) => localStorage.setItem(k, JSON.stringify({
       expenses: [{ id: 'a', amount: 1000, place: '가게', date: '2026-11-03', categoryId: 'food' }],
@@ -337,7 +337,7 @@ test.describe('잘못된 데이터에 대한 내구성', () => {
     await expect(page.locator('.expense-list')).toContainText('가게');
     await H.addExpenseUI(page, { amount: '500', place: '껌' });
     const st = await H.getState(page);
-    expect(st.schemaVersion).toBe(3);
+    expect(st.schemaVersion).toBe(4);
     expect(st.stocks).toEqual([]);
     expect(st.expenses[0].installment).toBeNull();
     expect(st.recurring[0]).toMatchObject({ paidPeriods: [], remindDaysBefore: 3 });

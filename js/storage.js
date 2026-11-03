@@ -3,7 +3,7 @@
   'use strict';
 
   var STORAGE_KEY = 'household-ledger';
-  var SCHEMA_VERSION = 3;
+  var SCHEMA_VERSION = 4;
   var MAX_INSTALLMENT = 36; // 할부 최대 개월 수
   var REFRESH_OPTIONS = [0, 60, 300, 600]; // 주식 자동 갱신 주기(초). 0 = 끄기
 
@@ -66,7 +66,7 @@
         lastBackupAt: null,
         stockApiKey: '',
         stockRelayUrl: '',
-        stockRefreshSec: 60
+        stockRefreshSec: 0 // 0 = 자동 갱신 끄기: [지금 갱신]을 누를 때만 시세를 받는다
       }
     };
   }
@@ -309,6 +309,8 @@
     // v0(버전 정보 없음) → v1: 구조는 같다고 보고 normalize로 보정
     if (v < 2) migrateKeywordsV2(data);
     // v2 → v3: 할부(expense.installment), 주식(stocks, market), 주식 설정 추가 — normalize가 기본값을 채운다
+    // v3 → v4: 주식 자동 갱신 기본값을 1분 → 끄기로. 예전 기본값(60초)을 그대로 쓰던 경우만 바꾼다
+    if (v < 4 && isObj(data.settings) && data.settings.stockRefreshSec === 60) data.settings.stockRefreshSec = 0;
     data.schemaVersion = SCHEMA_VERSION;
     return normalize(data, report);
   }

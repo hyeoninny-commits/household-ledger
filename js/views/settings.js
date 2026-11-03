@@ -137,7 +137,7 @@
           '<label class="field"><span>해외 시세 Twelve Data API 키 (선택)</span><input type="password" name="stockApiKey" autocomplete="off" spellcheck="false" value="' + U.escapeHtml(st.stockApiKey || '') + '" placeholder="비우면 사용 안 함"></label>' +
           '<label class="field"><span>자동 갱신</span><select name="stockRefreshSec">' +
             L.storage.REFRESH_OPTIONS.map(function (sec) {
-              return '<option value="' + sec + '"' + (st.stockRefreshSec === sec ? ' selected' : '') + '>' + (sec ? (sec / 60) + '분마다' : '끄기 (들어갈 때만)') + '</option>';
+              return '<option value="' + sec + '"' + (st.stockRefreshSec === sec ? ' selected' : '') + '>' + (sec ? (sec / 60) + '분마다' : '끄기 ([지금 갱신]을 누를 때만)') + '</option>';
             }).join('') +
           '</select></label>' +
         '</div>' +

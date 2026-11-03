@@ -26,9 +26,12 @@ function appUrl() {
 }
 
 /** 기본 데이터에 patch를 덮어써 localStorage에 넣고 새로고침 */
+/** 기본 데이터에 patch를 덮어써 localStorage에 넣고 새로고침.
+ * 주식 종목을 넣는 테스트는 자동 갱신(1분)을 켠 상태로 시작한다 (기본값은 끄기). 끄기를 시험하려면 settings.stockRefreshSec: 0 */
 async function seed(page, patch = {}) {
   await page.evaluate(({ patch, KEY }) => {
     const d = window.Ledger.storage.createDefault();
+    if (patch.stocks && patch.stocks.length) d.settings.stockRefreshSec = 60;
     const settings = Object.assign(d.settings, patch.settings || {});
     Object.assign(d, patch, { settings });
     localStorage.setItem(KEY, JSON.stringify(d));

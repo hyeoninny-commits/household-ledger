@@ -166,8 +166,11 @@
   function fetchDomestic(stocks, state) {
     if (!relayBase(state)) return fetchGithubData(stocks);
     return fetchRelay(stocks, state).catch(function (e) {
-      if (e && e.message === 'no-relay') return fetchGithubData(stocks);
-      throw e;
+      // 실시간 중계 서버가 없거나 연결이 안 되면(주소 오타·서버 중단 등) GitHub 자동 갱신 파일로 대신 받는다
+      return fetchGithubData(stocks).then(function (r) {
+        if (!(e && e.message === 'no-relay')) r.notice = '실시간 중계 서버에 연결하지 못해(' + (e && e.message || '오류') + ') 10분 간격 시세를 보여 드려요';
+        return r;
+      });
     });
   }
 
@@ -246,6 +249,7 @@
         Object.assign(out.quotes, r.quotes);
         Object.assign(out.errors, r.errors);
         if (r.usdkrw) out.usdkrw = r.usdkrw;
+        if (r.notice) out.notices.push(r.notice);
         if (Object.keys(r.quotes).length || !Object.keys(r.errors).length) out.sources.push(source || r.source);
       }, function (e) {
         var msg = MISSING[e && e.message] || (e && e.message) || '시세를 받지 못했어요';
