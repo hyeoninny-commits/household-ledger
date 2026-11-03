@@ -52,6 +52,11 @@ test.beforeEach(async ({ page }) => {
         const tab = e.target && e.target.closest ? e.target.closest('a.tab') : null;
         window.__log.push(t + ':' + (tab ? tab.dataset.route : (e.target && e.target.tagName)) + (e.defaultPrevented ? '(prevented)' : ''));
       }, true));
+    // 앱의 클릭 처리(document) 뒤에 실행 → 앱이 이동을 처리했는지(defaultPrevented) 기록
+    window.addEventListener('click', (e) => {
+      const tab = e.target && e.target.closest ? e.target.closest('a.tab') : null;
+      if (tab) window.__log.push('after-app:' + tab.dataset.route + (e.defaultPrevented ? '(handled)' : '(NOT handled)') + ' hash=' + location.hash + ' route=' + (window.Ledger && window.Ledger.router && window.Ledger.router.current()));
+    });
   });
   // 등장 애니메이션 도중에 위치를 재지 않도록 (실제 기기에서는 애니메이션이 정상 동작)
   await page.emulateMedia({ reducedMotion: 'reduce' });
