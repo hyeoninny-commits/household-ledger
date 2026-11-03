@@ -1,0 +1,11 @@
+{
+  "name": "household-ledger-tests",
+  "private": true,
+  "description": "가계부 앱 Playwright 검토 테스트 (앱 실행에는 필요 없음)",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}

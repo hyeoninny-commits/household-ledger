@@ -1,0 +1,5 @@
+{
+  "type": "module",
+  "private": true,
+  "description": "가계부 국내 주식 시세 중계 서버 (Cloudflare Workers / PC 공용)"
+}

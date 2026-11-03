@@ -1,0 +1,14 @@
+# 설치·실행 결과물
+node_modules/
+test-results/
+playwright-report/
+results.json
+.playwright-mcp/
+
+# 가계부 백업 파일 (개인 데이터) — 절대 올리지 않음
+*백업*.json
+household-ledger*.json
+
+# OS
+Thumbs.db
+.DS_Store
