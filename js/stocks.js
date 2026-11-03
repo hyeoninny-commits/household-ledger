@@ -168,7 +168,7 @@
     return fetchRelay(stocks, state).catch(function (e) {
       // 실시간 중계 서버가 없거나 연결이 안 되면(주소 오타·서버 중단 등) GitHub 자동 갱신 파일로 대신 받는다
       return fetchGithubData(stocks).then(function (r) {
-        if (!(e && e.message === 'no-relay')) r.notice = '실시간 중계 서버에 연결하지 못해(' + (e && e.message || '오류') + ') 10분 간격 시세를 보여 드려요';
+        if (!(e && e.message === 'no-relay')) r.notice = '실시간 중계 서버에 연결하지 못해 10분 간격 시세로 대신 보여 드려요. 설정의 중계 서버 주소를 확인하거나 비워 두세요';
         return r;
       });
     });
@@ -243,13 +243,13 @@
   function refresh(state, stocks) {
     var list = stocks || state.stocks;
     var dom = list.filter(isDomestic), ovs = list.filter(function (s) { return !isDomestic(s); });
-    var out = { quotes: {}, errors: {}, usdkrw: null, sources: [], notices: [] };
+    var out = { quotes: {}, errors: {}, usdkrw: null, sources: [], notices: [], infos: [] };
     function collect(part, source, p) {
       return p.then(function (r) {
         Object.assign(out.quotes, r.quotes);
         Object.assign(out.errors, r.errors);
         if (r.usdkrw) out.usdkrw = r.usdkrw;
-        if (r.notice) out.notices.push(r.notice);
+        if (r.notice) out.infos.push(r.notice); // 실패가 아니라 다른 출처로 대신 받은 경우
         if (Object.keys(r.quotes).length || !Object.keys(r.errors).length) out.sources.push(source || r.source);
       }, function (e) {
         var msg = MISSING[e && e.message] || (e && e.message) || '시세를 받지 못했어요';

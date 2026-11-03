@@ -168,6 +168,7 @@
         ' · ' + timeText(at) + ' 기준' +
         (onlyGithub ? ' · 평일 장중 10분마다 새 시세' : sec ? ' · ' + sec / 60 + '분마다 자동 갱신' : ''));
     }
+    (lastResult.infos || []).forEach(function (m) { parts.push('<span class="muted">' + U.escapeHtml(m) + '.</span>'); });
     var errs = Object.keys(lastResult.errors || {}).length;
     if (lastResult.notices.length) {
       parts.push('<span class="text-over">' + lastResult.notices.map(U.escapeHtml).join('. ') + '.</span> ' +

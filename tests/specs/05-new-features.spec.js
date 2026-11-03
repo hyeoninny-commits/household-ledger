@@ -483,7 +483,8 @@ test.describe('주식', () => {
     await H.openApp(page, { hash: '#stocks' });
     await H.seed(page, { stocks: [stock('KS', '005930', 1)], settings: { stockRelayUrl: 'https://wrong-relay.example' } });
     await expect(page.locator('.stock-price strong')).toHaveText('217,750원');
-    await expect(page.locator('[data-status]')).toContainText('실시간 중계 서버에 연결하지 못해');
+    await expect(page.locator('[data-status]')).toContainText('실시간 중계 서버에 연결하지 못해 10분 간격 시세로 대신 보여 드려요');
+    await expect(page.locator('[data-status]')).not.toContainText('직접 입력한 가격으로 계산');
     await expect(page.locator('[data-status]')).toContainText('국내 네이버(10분 간격)');
   });
 
